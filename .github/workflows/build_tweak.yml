@@ -1,0 +1,64 @@
+name: Tweak Kompilierung (BHTikTok)
+
+on:
+  workflow_dispatch:
+    # Ermöglicht das manuelle Ausführen dieses Workflows
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build_tweak:
+    # 1. Wir müssen macOS verwenden, da Theos (Theos-Toolchain) am besten mit Xcode/macOS funktioniert.
+    runs-on: macos-latest
+
+    steps:
+    # 1. Checkout des Quellcodes (Ihr Projekt)
+    - name: Checkout Code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive # Falls Abhängigkeiten existieren
+
+    # 2. Konfiguration der Theos-Umgebung
+    - name: Set up Theos Environment
+      # Hier wird Theos in einem temporären Verzeichnis installiert/konfiguriert.
+      run: |
+        # Klonen von Theos (Standardpfad)
+        git clone --recursive https://github.com/theos/theos.git /opt/theos
+        # Hinzufügen des Theos-Binärpfads zur Umgebungsvariable
+        echo "/opt/theos/bin" >> $GITHUB_PATH
+        # Installation von Abhängigkeiten, die Theos benötigt
+        brew install dpkg ldid coreutils
+
+    # 3. Kompilierung des Tweaks
+    - name: Build Tweak (make package)
+      # Wir führen "make package" aus. Dies kompiliert den Code 
+      # und packt ihn in eine .deb-Datei (die wir später entpacken können).
+      run: |
+        make package FINALPACKAGE=1
+
+    # 4. Extrahieren der kompilierte Dateien für den nächsten Schritt
+    - name: Extract Tweak Components (.dylib, .plist)
+      # Wir entpacken die generierte .deb-Datei, um an die .dylib zu gelangen.
+      # Der Dateiname basiert auf Ihrer control-Datei.
+      run: |
+        mkdir -p extracted_tweak
+        dpkg-deb -R com.bandarhl.bhtiktok_0.0.1_iphoneos-arm.deb extracted_tweak/
+        
+        # Sicherstellen, dass die .dylib und .plist in einem leicht zugänglichen Ordner liegen:
+        cp extracted_tweak/Library/MobileSubstrate/DynamicLibraries/BHTikTok.dylib .
+        cp extracted_tweak/Library/MobileSubstrate/DynamicLibraries/BHTikTok.plist .
+        # Kopieren des Einstellungs-Bundles
+        cp -r extracted_tweak/Library/PreferenceBundles/BHTikTokSettings.bundle . || true # '|| true' verhindert Fehler, falls Bundle fehlt
+
+    # 5. Speichern der kompilierte Dateien
+    - name: Upload Tweak Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: BHTikTok-Assets
+        path: |
+          BHTikTok.dylib
+          BHTikTok.plist
+          BHTikTokSettings.bundle/ # Muss existieren, ansonsten wird dieser Schritt übersprungen
+        retention-days: 1 # Temporäre Speicherung
+
+    # Nächster Schritt: Integration in die .ipa (Dies wäre Ihr bestehender Injektions-Workflow)
