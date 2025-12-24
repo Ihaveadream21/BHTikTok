@@ -73,12 +73,20 @@
     }
     return section;
 }
+
+// ----------------------------------------------------
+// 🟢 KORRIGIERTE METHODE: Behebt den Kompilierungsfehler in Zeile 81
+// ----------------------------------------------------
 - (PSSpecifier *)newLinkListCellWithTitle:(NSString *)titleText key:(NSString *)keyText defaultValue:(NSNumber *)defValue dynamicRule:(NSString *)rule validTitles:(NSMutableArray <NSString *> *)validTitles validValues:(NSMutableArray<NSMutableDictionary *> *)validValues {
     PSSpecifier *linkListCell = [PSSpecifier preferenceSpecifierNamed:titleText target:self set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:) detail:PSListItemsController.class cell:PSLinkListCell edit:nil];
     
     [linkListCell setProperty:keyText forKey:@"key"];
     [linkListCell setProperty:defValue forKey:@"default"];
-    [linkListCell setValues:validValues titles:validTitles];
+    
+    // FIX: Ersetzt [linkListCell setValues:validValues titles:validTitles];
+    // Dies ist die korrekte und kompatible Art, die Properties zu setzen, die PSLinkListCell benötigt.
+    [linkListCell setProperty:validValues forKey:@"validValues"];
+    [linkListCell setProperty:validTitles forKey:@"validTitles"];
     
     if (rule != nil) {
         [linkListCell setProperty:rule forKey:@"dynamicRule"];
@@ -86,6 +94,8 @@
     
     return linkListCell;
 }
+// ----------------------------------------------------
+
 - (PSSpecifier *)newEditTextCellWithLabel:(NSString *)labeltext placeholder:(NSString *)placeholder keyboardType:(NSString *)keyboardType dynamicRule:(NSString *)rule key:(NSString *)keyText {
     PSSpecifier *editTextCell = [PSSpecifier preferenceSpecifierNamed:labeltext target:self set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:) detail:nil cell:PSEditTextCell edit:nil];
 
