@@ -19,26 +19,28 @@ jobs:
         submodules: recursive
 
     # 2. Konfiguration der Theos-Umgebung
-    # Fix: Klonen nach $HOME/theos, um Berechtigungsprobleme in /opt/ zu vermeiden.
+    # FIX: Setzt THEOS jetzt über $GITHUB_ENV für den nächsten Schritt
     - name: Set up Theos Environment
       run: |
         echo "Installing necessary dependencies (ldid, dpkg)..."
         # Notwendige Tools für die DEB-Erstellung und Code-Signierung (ldid)
         brew install dpkg ldid coreutils
         
-        # Klonen von Theos in das Home-Verzeichnis ($HOME/theos), das beschreibbar ist
+        # Klonen von Theos in das Home-Verzeichnis ($HOME/theos)
         echo "Cloning Theos into $HOME/theos..."
         git clone --recursive https://github.com/theos/theos.git $HOME/theos
         
-        # Hinzufügen des Theos-Binärpfads zur Umgebungsvariable
+        # 🟢 WICHTIGER FIX: Setzt die THEOS-Variable global für nachfolgende Schritte
+        echo "THEOS=$HOME/theos" >> $GITHUB_ENV
+        
+        # Fügt den Binärpfad zur PATH-Variable hinzu (damit 'make' und andere Befehle gefunden werden)
         echo "$HOME/theos/bin" >> $GITHUB_PATH
-        export THEOS="$HOME/theos"
         
         echo "Theos installation complete."
 
     # 3. Kompilierung des Tweaks
     - name: Build Tweak (make package)
-      # Führt make package aus, um die .deb-Datei zu erstellen
+      # Die Variable THEOS wird hier korrekt aus der Umgebung geladen.
       run: |
         make package FINALPACKAGE=1
 
@@ -49,14 +51,13 @@ jobs:
         mkdir -p extracted_tweak
         
         echo "Extracting $DEB_FILE..."
-        # Entpackt die .deb-Datei in den Ordner 'extracted_tweak'
         dpkg-deb -R $DEB_FILE extracted_tweak/
         
         # Kopiert die benötigten Komponenten in das Root-Verzeichnis des Workflows
         cp extracted_tweak/Library/MobileSubstrate/DynamicLibraries/BHTikTok.dylib .
         cp extracted_tweak/Library/MobileSubstrate/DynamicLibraries/BHTikTok.plist .
         
-        # Kopieren des Einstellungs-Bundles (erforderlich für Tweaks mit SettingsViewController)
+        # Kopieren des Einstellungs-Bundles
         cp -r extracted_tweak/Library/PreferenceBundles/BHTikTokSettings.bundle . || true 
 
     # 5. Speichern der kompilierte Dateien als Artifacts
