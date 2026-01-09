@@ -1,0 +1,56 @@
+name: Build Unsigned TikTok IPA
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v4
+
+    - name: Install build dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y \
+          git make clang zip unzip wget
+
+    - name: Clone Theos
+      run: |
+        git clone --recursive https://github.com/theos/theos.git $HOME/theos
+
+    - name: Set THEOS environment
+      run: |
+        echo "THEOS=$HOME/theos" >> $GITHUB_ENV
+        echo "$HOME/theos/bin" >> $GITHUB_PATH
+
+    - name: Install iOS SDKs
+      run: |
+        git clone https://github.com/theos/sdks.git $HOME/theos/sdks
+
+    - name: Build BHTikTok dylib
+      run: |
+        make clean
+        make
+
+    # Du stellst DIESE IPA selbst bereit (Secret oder URL)
+    - name: Restore decrypted TikTok IPA
+      run: |
+        echo "$TIKTOK_IPA_BASE64" | base64 -d > TikTok.ipa
+      env:
+        TIKTOK_IPA_BASE64: ${{ secrets.TIKTOK_IPA_BASE64 }}
+
+    - name: Inject tweak into IPA
+      run: |
+        unzip TikTok.ipa -d ipa
+        cp .theos/obj/arm64/BHTikTok.dylib ipa/Payload/TikTok.app/
+        zip -r TikTok_BHTikTok_unsigned.ipa ipa/Payload
+
+    - name: Upload unsigned IPA
+      uses: actions/upload-artifact@v4
+      with:
+        name: TikTok_BHTikTok_unsigned
+        path: TikTok_BHTikTok_unsigned.ipa
